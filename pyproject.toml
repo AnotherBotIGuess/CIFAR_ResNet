@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "CIFAR10-ResNet"
+version = "0.1.0"
+description = "Replicating methods conducted on CIFAR-10 dataset."
+authors = ["AnotherBotIGuess"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+torch = "^2.0.0"
+torchvision = "^0.15.1"
+pandas = "^2.0.1"
+difpy = "^3.0.10"
+scikit-learn = "^1.3.0"
+black = "^23.9.1"
+pylint = "^2.17.5"
+pre-commit = "^3.4.0"
+deptry = "^0.12.0"
+opencv-python = "^4.8.1.78"
+seaborn = "^0.13.0"
+onnx = "^1.15.0"
+kaggle = "^1.6.12"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

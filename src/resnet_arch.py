@@ -1,10 +1,29 @@
 import torch
+from typing import List
 import torch.nn as nn
 import logging
 
 
 class ResNetBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, identity_downsample=None, stride=1):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        identity_downsample: nn.Sequential = None,
+        stride: int = 1,
+    ) -> None:
+        """ResNet Block initialization method.
+
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            identity_downsample (nn.Sequential, optional): Convolution and batch norm layer for identity function implementation. Defaults to None.
+            stride (int, optional): Stride of kernel. Defaults to 1.
+
+        Returns:
+            None
+
+        """
         super(ResNetBlock, self).__init__()
         self.expansion = 4
 
@@ -20,7 +39,16 @@ class ResNetBlock(nn.Module):
         self.relu = nn.ReLU()
         self.identity_downsample = identity_downsample
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass of ResNet Block.
+
+        Args:
+            x (torch.Tensor): Input tensor to be passed through the block
+
+        Returns:
+            torch.Tensor: Output tensor
+
+        """
         identity = x
 
         x = self.conv1(x)
@@ -35,11 +63,30 @@ class ResNetBlock(nn.Module):
         # Apply residual and relu
         x += identity
         x = self.relu(x)
+
         return x
 
 
 class BottleNeckBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, identity_downsample=None, stride=1):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        identity_downsample: nn.Sequential = None,
+        stride: int = 1,
+    ) -> None:
+        """ResNet BottleNeck Block initialization method.
+
+        Args:
+            in_channels (int): Number of input channels
+            out_channels (int): Number of output channels
+            identity_downsample (nn.Sequential, optional): Convolution and batch norm for identity function implementation. Defaults to None.
+            stride (int, optional): Stride of kernel. Defaults to 1.
+
+        Returns:
+            None
+
+        """
         super(BottleNeckBlock, self).__init__()
         self.expansion = 4
 
@@ -63,7 +110,16 @@ class BottleNeckBlock(nn.Module):
         self.relu = nn.ReLU()
         self.identity_downsample = identity_downsample
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass of ResNet BottleNeck Block.
+
+        Args:
+            x (torch.Tensor): Input tensor to be passed through the block
+
+        Returns:
+            torch.Tensor: Output tensor
+
+        """
         identity = x
 
         x = self.conv1(x)
@@ -80,20 +136,34 @@ class BottleNeckBlock(nn.Module):
         # Apply residual and relu
         x += identity
         x = self.relu(x)
+
         return x
 
 
-class ResNet(
-    nn.Module
-):  # num_layers = how many time we will implement above block [list] e.g. [3,4,6,3]
+class ResNet(nn.Module):
+    """Class for implementing ResNet Architecture."""
+
     def __init__(
         self,
         Block: nn.Module,
-        num_layers: list,
+        num_layers: List[int],
         image_channels: int,
         num_classes: int,
         bottleneck=False,
-    ):
+    ) -> None:
+        """ResNet initialization method.
+
+        Args:
+            Block (nn.Module): Reusable block containing convolutional layers
+            num_layers (list[int]): List containing number of layers for each block
+            image_channels (int): Number of input channels
+            num_classes (int): Number of classes/labels
+            bottleneck (bool, optional): Boolean flag for if Block class contains bottleneck structuring. Defaults to False.
+
+        Returns:
+            None
+
+        """
         super(ResNet, self).__init__()
         self.bottleneck = bottleneck
 
@@ -105,7 +175,7 @@ class ResNet(
         self.relu = nn.ReLU()
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        # Call Resnet Blocks
+        # Call Resnet Blocks. Comments based on ResNet34 layer [3, 4, 6, 3]
         self.layer2 = self._make_layer(
             Block, num_layers[0], out_channels=64, stride=1
         )  # 3 layers
@@ -119,13 +189,23 @@ class ResNet(
             Block, num_layers[3], out_channels=512, stride=2
         )  # 3 layers
 
+        # Global pooling and output layer
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         if bottleneck:
             self.fc = nn.Linear(512 * 4, num_classes)
         else:
             self.fc = nn.Linear(512, num_classes)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass of ResNet.
+
+        Args:
+            x (torch.Tensor): Input tensor to be passed through the network
+
+        Returns:
+            torch.Tensor: Output tensor
+
+        """
         # layer 1
         x = self.conv1(x)
         x = self.bn1(x)
@@ -144,12 +224,26 @@ class ResNet(
 
         return x
 
-    def _make_layer(self, Block, num_residual_blocks, out_channels, stride):
+    def _make_layer(
+        self, Block: nn.Module, num_residual_blocks: int, out_channels: int, stride: int
+    ) -> nn.Sequential:
+        """Method to create layers for ResNet.
+
+        Args:
+            Block (nn.Module): Block archtecture to be used
+            num_residual_blocks (int): Number to be created
+            out_channels (int): Number of output channels
+            stride (int): Stride to be used for kernel
+
+        Returns:
+            nn.Sequential: Sequential module to be used.
+
+        """
         identity_downsample = None
         layers = []
 
         if self.bottleneck:
-            # When is identity layer needed
+            # Logic for when identity layer is needed, modified for bottleneck Block
             if stride != 1 or self.in_channels != out_channels * 4:
                 identity_downsample = nn.Sequential(
                     nn.Conv2d(
@@ -157,22 +251,21 @@ class ResNet(
                     ),
                     nn.BatchNorm2d(out_channels * 4),
                 )
-            # This is the layer that changes the number of channels
+            # Initial addition of layer
             layers.append(
                 Block(self.in_channels, out_channels, identity_downsample, stride)
             )
-            self.in_channels = out_channels * 4  #  64 * 4 = 256
+            self.in_channels = out_channels * 4  # Channel update
 
+            # Iterate and add remaining layers
             for i in range(num_residual_blocks - 1):
-                layers.append(
-                    Block(self.in_channels, out_channels)
-                )  # input 256 -> 64, 64*4 (256) again
+                layers.append(Block(self.in_channels, out_channels))
 
             # Returns unpacked list
             return nn.Sequential(*layers)
 
         else:
-            # When is identity layer needed
+            # When identity layer needed
             if stride != 1 or self.in_channels != out_channels:
                 identity_downsample = nn.Sequential(
                     nn.Conv2d(
@@ -180,12 +273,13 @@ class ResNet(
                     ),
                     nn.BatchNorm2d(out_channels),
                 )
-            # This is the layer that changes the number of channels
+            # Initial addition of layer
             layers.append(
                 Block(self.in_channels, out_channels, identity_downsample, stride)
             )
             self.in_channels = out_channels  #  64 * 4 = 256
 
+            # Iterate and add remaining layers
             for i in range(num_residual_blocks - 1):
                 layers.append(
                     Block(self.in_channels, out_channels)
@@ -193,13 +287,3 @@ class ResNet(
 
             # Returns unpacked list
             return nn.Sequential(*layers)
-
-
-# def ResNet50(img_channels=3, num_classes=4):
-#     return ResNet(Block, [3,4,6,3], img_channels, num_classes)\
-
-# def ResNet101(img_channels=3, num_classes=4):
-#     return ResNet(Block, [3,4,23,3], img_channels, num_classes)
-
-# def ResNet152(img_channels=3, num_classes=4):
-#     return ResNet(Block, [3,4,36,3], img_channels, num_classes)
